@@ -6,6 +6,15 @@ const EstabelecimentoSchema = new mongoose.Schema({
   telefone: String,
   descricao: String,
   fotoUrl: String,
+  location: {
+    type: {
+      type: String,
+      enum: ["Point"]
+    },
+    coordinates: {
+      type: [Number]
+    }
+  },
 
   // CATEGORIA (obrigatória)
   categoria: {
@@ -38,5 +47,7 @@ const EstabelecimentoSchema = new mongoose.Schema({
     required: true
   }
 });
+
+EstabelecimentoSchema.index({ location: "2dsphere" });
 
 export default mongoose.model("Estabelecimento", EstabelecimentoSchema);

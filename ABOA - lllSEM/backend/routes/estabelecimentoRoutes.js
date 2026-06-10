@@ -37,6 +37,93 @@ function levenshtein(a, b) {
   return matrix[b.length][a.length];
 }
 
+const geocodeCache = new Map();
+
+function getGeoParams(query) {
+  const lat = Number(query.lat);
+  const lng = Number(query.lng);
+  const raioKm = Number(query.raioKm || 10);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    lat,
+    lng,
+    raioKm: Number.isFinite(raioKm) && raioKm > 0 ? raioKm : 10
+  };
+}
+
+function comDistanciaKm(est) {
+  if (typeof est.distanciaMetros !== "number") return est;
+
+  return {
+    ...est,
+    distanciaKm: Number((est.distanciaMetros / 1000).toFixed(1))
+  };
+}
+
+async function geocodificarEndereco(endereco) {
+  if (!endereco?.trim()) return null;
+
+  const chave = endereco.trim().toLowerCase();
+  if (geocodeCache.has(chave)) return geocodeCache.get(chave);
+
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("format", "json");
+    url.searchParams.set("limit", "1");
+    url.searchParams.set("addressdetails", "0");
+    url.searchParams.set("countrycodes", "br");
+    url.searchParams.set("q", endereco);
+
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "ABOA-localizacao/1.0",
+        "Accept-Language": "pt-BR"
+      }
+    });
+
+    if (!resp.ok) return null;
+
+    const data = await resp.json();
+    const primeiro = data?.[0];
+    const lat = Number(primeiro?.lat);
+    const lon = Number(primeiro?.lon);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const location = {
+      type: "Point",
+      coordinates: [lon, lat]
+    };
+
+    geocodeCache.set(chave, location);
+    return location;
+  } catch (err) {
+    console.error("Erro ao geocodificar endereco:", err);
+    return null;
+  }
+}
+
+async function buscarPorRaio({ lat, lng, raioKm }, query = {}) {
+  const dados = await Estabelecimento.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: "Point",
+          coordinates: [lng, lat]
+        },
+        distanceField: "distanciaMetros",
+        maxDistance: raioKm * 1000,
+        spherical: true,
+        query
+      }
+    }
+  ]);
+
+  return dados.map(comDistanciaKm);
+}
+
 
 const router = express.Router();
 
@@ -76,12 +163,15 @@ router.post(
         tags
       } = req.body;
 
+      const location = await geocodificarEndereco(endereco);
+
       const novo = await Estabelecimento.create({
         nome,
         endereco,
         telefone,
         descricao,
         categoria,
+        ...(location ? { location } : {}),
         tags: JSON.parse(tags || "[]"),
         fotoUrl: req.files?.foto
           ? `/uploads/${req.files.foto[0].filename}`
@@ -111,6 +201,22 @@ router.post(
 // GET listar
 router.get("/", async (req, res) => {
   try {
+    const geo = getGeoParams(req.query);
+
+    if (geo) {
+      const temCoordenadas = await Estabelecimento.exists({
+        "location.coordinates.0": { $exists: true }
+      });
+
+      if (!temCoordenadas) {
+        const dados = await Estabelecimento.find();
+        return res.json(dados);
+      }
+
+      const dados = await buscarPorRaio(geo);
+      return res.json(dados);
+    }
+
     const dados = await Estabelecimento.find();
     res.json(dados);
   } catch (err) {
@@ -136,9 +242,16 @@ router.get("/meu", authRequired, async (req, res) => {
 
 router.put("/meu", authRequired, async (req, res) => {
   try {
+    const dadosAtualizados = { ...req.body };
+
+    if (req.body.endereco) {
+      const location = await geocodificarEndereco(req.body.endereco);
+      if (location) dadosAtualizados.location = location;
+    }
+
     const atualizado = await Estabelecimento.findOneAndUpdate(
       { donoId: req.usuario.id },
-      req.body,
+      dadosAtualizados,
       { new: true }
     );
     res.json(atualizado);
@@ -181,15 +294,30 @@ router.get("/buscar", async (req, res) => {
     if (!q) return res.json([]);
 
     const termo = q.toLowerCase();
-
-    const resultados = await Estabelecimento.find({
+    const filtroBusca = {
       $or: [
         { nome: new RegExp(termo, "i") },
         { descricao: new RegExp(termo, "i") },
         { categoria: new RegExp(termo, "i") },
         { tags: new RegExp(termo, "i") }
       ]
-    });
+    };
+
+    const geo = getGeoParams(req.query);
+    let resultados;
+
+    if (geo) {
+      const temCoordenadas = await Estabelecimento.exists({
+        ...filtroBusca,
+        "location.coordinates.0": { $exists: true }
+      });
+
+      resultados = temCoordenadas
+        ? await buscarPorRaio(geo, filtroBusca)
+        : await Estabelecimento.find(filtroBusca);
+    } else {
+      resultados = await Estabelecimento.find(filtroBusca);
+    }
 
     function calcularRelevancia(est) {
       let score = 0;
@@ -221,11 +349,18 @@ router.get("/buscar", async (req, res) => {
 
     // ORDENAR PELO SCORE (maior = mais relevante)
     const ordenados = resultados
-      .map(est => ({
-        ...est._doc,
-        score: calcularRelevancia(est)
-      }))
-      .sort((a, b) => b.score - a.score);
+      .map(est => {
+        const dados = est._doc || est;
+
+        return {
+          ...dados,
+          score: calcularRelevancia(dados)
+        };
+      })
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.distanciaKm || 0) - (b.distanciaKm || 0);
+      });
 
     res.json(ordenados);
 

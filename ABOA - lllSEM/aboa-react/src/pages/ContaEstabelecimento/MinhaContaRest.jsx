@@ -3,6 +3,7 @@ import styles from "./minhaconta.module.css";
 import Header from "../../components/Header.jsx";
 import EditarPerfilModal from "./EditarPerfilModal.jsx";
 import EditarItemModal from "./EditarItemModal.jsx";
+import { API_URL } from "../../config/api.js";
 
 export default function MinhaContaRest() {
   const [perfil, setPerfil] = useState(null);
@@ -35,7 +36,7 @@ export default function MinhaContaRest() {
   async function carregarItens() {
     const token = localStorage.getItem("token");
 
-    const resp = await fetch("http://localhost:5000/api/cardapio/meus", {
+    const resp = await fetch(`${API_URL}/api/cardapio/meus`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -59,7 +60,7 @@ export default function MinhaContaRest() {
         const token = localStorage.getItem("token");
 
         const resp = await fetch(
-          "http://localhost:5000/api/estabelecimentos/meu",
+          `${API_URL}/api/estabelecimentos/meu`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -73,7 +74,7 @@ export default function MinhaContaRest() {
         const dados = await resp.json();
 
         setPerfil({
-          foto: dados.fotoUrl ? `http://localhost:5000${dados.fotoUrl}` : null,
+          foto: dados.fotoUrl ? `${API_URL}${dados.fotoUrl}` : null,
           nome: dados.nome,
           endereco: dados.endereco,
           telefone: dados.telefone,
@@ -134,7 +135,7 @@ export default function MinhaContaRest() {
 
     if (editando) {
       resposta = await fetch(
-        `http://localhost:5000/api/cardapio/${formItem._id}`,
+        `${API_URL}/api/cardapio/${formItem._id}`,
         {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
@@ -142,7 +143,7 @@ export default function MinhaContaRest() {
         }
       );
     } else {
-      resposta = await fetch("http://localhost:5000/api/cardapio", {
+      resposta = await fetch(`${API_URL}/api/cardapio`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -171,7 +172,7 @@ export default function MinhaContaRest() {
     const ok = confirm("Deseja remover este item?");
     if (!ok) return;
 
-    await fetch(`http://localhost:5000/api/cardapio/${id}`, {
+    await fetch(`${API_URL}/api/cardapio/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -286,7 +287,7 @@ export default function MinhaContaRest() {
                 <div className={styles.itemLeft}>
                   {item.fotoUrl ? (
                     <img
-                      src={`http://localhost:5000${item.fotoUrl}`}
+                      src={`${API_URL}${item.fotoUrl}`}
                       className={styles.itemFoto}
                     />
                   ) : (

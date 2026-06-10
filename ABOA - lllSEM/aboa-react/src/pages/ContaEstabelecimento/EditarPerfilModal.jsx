@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import styles from "./editarperfil.module.css";
+import { API_URL } from "../../config/api.js";
 
 export default function EditarPerfilModal({ perfil, setPerfil, fechar }) {
   const [local, setLocal] = useState({
@@ -40,7 +41,7 @@ export default function EditarPerfilModal({ perfil, setPerfil, fechar }) {
       data.append("foto", novaFoto);
 
       const resp = await fetch(
-        "http://localhost:5000/api/estabelecimentos/foto",
+        `${API_URL}/api/estabelecimentos/foto`,
         {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
@@ -53,14 +54,14 @@ export default function EditarPerfilModal({ perfil, setPerfil, fechar }) {
       if (resp.ok) {
         setLocal((prev) => ({
           ...prev,
-          foto: `http://localhost:5000${json.fotoUrl}`
+          foto: `${API_URL}${json.fotoUrl}`
         }));
       }
     }
 
     // 2️⃣ Atualizar CAMPOS de texto + categoria + tags
     const resp2 = await fetch(
-      "http://localhost:5000/api/estabelecimentos/meu",
+      `${API_URL}/api/estabelecimentos/meu`,
       {
         method: "PUT",
         headers: {
@@ -82,7 +83,7 @@ export default function EditarPerfilModal({ perfil, setPerfil, fechar }) {
 
     if (resp2.ok) {
       setPerfil({
-        foto: `http://localhost:5000${json2.fotoUrl}`,
+        foto: `${API_URL}${json2.fotoUrl}`,
         nome: json2.nome,
         endereco: json2.endereco,
         telefone: json2.telefone,

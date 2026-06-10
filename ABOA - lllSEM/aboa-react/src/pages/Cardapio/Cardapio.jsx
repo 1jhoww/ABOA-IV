@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import styles from "./Cardapio.module.css";
 import Header from "../../components/Header.jsx";
+import { API_URL } from "../../config/api.js";
 
 export default function Cardapio() {
   const location = useLocation();
@@ -22,10 +23,10 @@ export default function Cardapio() {
       }
 
       try {
-        console.log("Buscando:", `http://localhost:5000/api/cardapio/por-restaurante/${restaurante.donoId}`);
+        console.log("Buscando:", `${API_URL}/api/cardapio/por-restaurante/${restaurante.donoId}`);
 
         const resp = await fetch(
-          `http://localhost:5000/api/cardapio/por-restaurante/${restaurante.donoId}`
+          `${API_URL}/api/cardapio/por-restaurante/${restaurante.donoId}`
         );
 
         console.log("STATUS:", resp.status); // <<< TESTE 2
@@ -74,7 +75,7 @@ export default function Cardapio() {
 
       <div className={styles.topo}>
         <img
-          src={`http://localhost:5000${restaurante.fotoUrl}`}
+          src={`${API_URL}${restaurante.fotoUrl}`}
           alt={restaurante.nome}
           className={styles.fotoPerfil}
         />
@@ -140,7 +141,7 @@ export default function Cardapio() {
                 )}
 
                 <img
-                  src={`http://localhost:5000${item.fotoUrl}`}
+                  src={`${API_URL}${item.fotoUrl}`}
                   alt={item.nome}
                   className={styles.fotoItem}
                 />

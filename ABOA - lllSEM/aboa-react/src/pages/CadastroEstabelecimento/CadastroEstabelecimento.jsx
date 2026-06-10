@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import styles from "./cadastroestabelecimento.module.css";
 import Header from "../../components/Header.jsx";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../../config/api.js";
 
 export default function CadastroEstabelecimento() {
   const [preview, setPreview] = useState(null);
@@ -64,7 +65,7 @@ export default function CadastroEstabelecimento() {
     data.append("tags", JSON.stringify(tags));
 
     try {
-      const resp = await fetch("http://localhost:5000/api/estabelecimentos", {
+      const resp = await fetch(`${API_URL}/api/estabelecimentos`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

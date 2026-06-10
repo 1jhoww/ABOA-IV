@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import styles from "./header.module.css";
 import logo from "/imgs/Logo Aboa 1.png";
 
+const USER_LOCATION_KEY = "aboa:userLocation";
+
 export default function Header() {
   const navigate = useNavigate();
 
@@ -14,6 +16,7 @@ export default function Header() {
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("usuario");
+    sessionStorage.removeItem(USER_LOCATION_KEY);
     navigate("/login");
   }
 

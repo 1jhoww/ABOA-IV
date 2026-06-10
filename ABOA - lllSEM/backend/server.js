@@ -10,6 +10,12 @@ import cardapioRoutes from "./routes/cardapioRoutes.js";
 
 dotenv.config();
 const app = express();
+const PORT = process.env.PORT || 5000;
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.FRONTEND_URL
+].filter(Boolean);
 
 // conexão Mongo
 connectDB();
@@ -17,7 +23,7 @@ connectDB();
 // middlewares globais
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     methods: "GET,POST,PUT,DELETE",
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -31,8 +37,8 @@ app.use("/uploads", express.static("uploads"));
 app.use("/api/auth", authRoutes);
 app.use("/api/estabelecimentos", estabelecimentoRoutes);
 
-app.listen(process.env.PORT, () =>
-  console.log(`Backend rodando na porta ${process.env.PORT} ✔`)
+app.listen(PORT, () =>
+  console.log(`Backend rodando na porta ${PORT} ✔`)
 );
 
 app.use("/api/cardapio", cardapioRoutes);
