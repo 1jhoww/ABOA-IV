@@ -13,6 +13,7 @@ function useQuery() {
 
 const RAIO_KM = 10;
 const USER_LOCATION_KEY = "aboa:userLocation";
+const USER_LOCATION_UPDATED_EVENT = "aboa:userLocationUpdated";
 
 const userIcon = L.divIcon({
   className: styles.routeUserPin,
@@ -114,14 +115,16 @@ export default function Recomenda() {
   }
 
   async function buscar(termo) {
-    const resp = await fetch(
-      comLocalizacao(
-        `${API_URL}/api/estabelecimentos/buscar?q=${encodeURIComponent(
-          termo
-        )}`
-      )
-    );
-    const data = await resp.json();
+    const urlBusca = `${API_URL}/api/estabelecimentos/buscar?q=${encodeURIComponent(
+      termo
+    )}`;
+    const resp = await fetch(comLocalizacao(urlBusca));
+    let data = await resp.json();
+
+    if (posicaoUsuario && Array.isArray(data) && data.length === 0) {
+      const respSemRaio = await fetch(urlBusca);
+      data = await respSemRaio.json();
+    }
 
     if (data.length === 0) {
       setDestaque(null);
@@ -192,14 +195,33 @@ export default function Recomenda() {
   }
 
   useEffect(() => {
+    function atualizarLocalizacaoSalva() {
+      const localizacaoSalva = lerLocalizacaoSalva();
+      if (localizacaoSalva) {
+        setPosicaoUsuario(localizacaoSalva);
+      }
+    }
+
+    window.addEventListener(USER_LOCATION_UPDATED_EVENT, atualizarLocalizacaoSalva);
+
     const localizacaoSalva = lerLocalizacaoSalva();
     if (localizacaoSalva) {
       setPosicaoUsuario(localizacaoSalva);
-      return;
+      return () => {
+        window.removeEventListener(
+          USER_LOCATION_UPDATED_EVENT,
+          atualizarLocalizacaoSalva
+        );
+      };
     }
 
     if (sessionStorage.getItem(USER_LOCATION_KEY) || !navigator.geolocation) {
-      return;
+      return () => {
+        window.removeEventListener(
+          USER_LOCATION_UPDATED_EVENT,
+          atualizarLocalizacaoSalva
+        );
+      };
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -235,6 +257,13 @@ export default function Recomenda() {
         maximumAge: 300000
       }
     );
+
+    return () => {
+      window.removeEventListener(
+        USER_LOCATION_UPDATED_EVENT,
+        atualizarLocalizacaoSalva
+      );
+    };
   }, []);
 
   useEffect(() => {

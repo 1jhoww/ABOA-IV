@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { API_URL } from "../../config/api.js";
 
 const USER_LOCATION_KEY = "aboa:userLocation";
+const USER_LOCATION_UPDATED_EVENT = "aboa:userLocationUpdated";
 const RAIOS_DISPONIVEIS = [5, 10, 15, 20];
 
 const userIcon = L.divIcon({
@@ -95,6 +96,7 @@ export default function Home() {
             updatedAt: Date.now()
           })
         );
+        window.dispatchEvent(new Event(USER_LOCATION_UPDATED_EVENT));
       },
       (err) => {
         sessionStorage.setItem(
