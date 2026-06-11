@@ -38,6 +38,50 @@ function levenshtein(a, b) {
 }
 
 const geocodeCache = new Map();
+const TIPOS_GEOCODE_GENERICOS = new Set([
+  "city",
+  "town",
+  "village",
+  "municipality",
+  "state",
+  "region",
+  "county",
+  "postcode",
+  "suburb",
+  "neighbourhood",
+  "neighborhood",
+  "quarter",
+  "locality"
+]);
+const NOMES_ESTADOS_BR = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapa",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceara",
+  DF: "Distrito Federal",
+  ES: "Espirito Santo",
+  GO: "Goias",
+  MA: "Maranhao",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Para",
+  PB: "Paraiba",
+  PR: "Parana",
+  PE: "Pernambuco",
+  PI: "Piaui",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondonia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "Sao Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins"
+};
 
 function getGeoParams(query) {
   const lat = Number(query.lat);
@@ -62,43 +106,322 @@ function comDistanciaKm(est) {
   };
 }
 
+function normalizarTexto(texto = "") {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function escaparRegex(texto = "") {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function criarRegexBuscaTextual(termo = "") {
+  const mapaAcentos = {
+    a: "[aáàãâä]",
+    c: "[cç]",
+    e: "[eéèêë]",
+    i: "[iíìîï]",
+    o: "[oóòõôö]",
+    u: "[uúùûü]"
+  };
+
+  const termoNormalizado = normalizarTexto(termo);
+  const padrao = [...termoNormalizado]
+    .map((char) => {
+      if (/\s/.test(char)) return "\\s+";
+      return mapaAcentos[char] || escaparRegex(char);
+    })
+    .join("");
+
+  return new RegExp(padrao, "i");
+}
+
+function limparEspacos(texto = "") {
+  return texto.replace(/\s+/g, " ").trim();
+}
+
+function trocarHifensSeparadores(endereco) {
+  return limparEspacos(endereco.replace(/\s+-\s+/g, ", "));
+}
+
+function expandirAbreviacoes(endereco) {
+  return limparEspacos(
+    endereco
+      .replace(/\bAv\.\s*/gi, "Avenida ")
+      .replace(/\bDr\.\s*/gi, "Doutor ")
+      .replace(/\bR\.\s*/gi, "Rua ")
+      .replace(/\bRod\.\s*/gi, "Rodovia ")
+  );
+}
+
+function extrairNumero(endereco) {
+  const semCep = endereco.replace(/\b\d{5}-?\d{3}\b/g, " ");
+  return semCep.match(/\b\d{1,6}\b/)?.[0] || null;
+}
+
+function extrairCidade(endereco) {
+  const matchComUf = endereco.match(/,\s*([^,\-]+?)\s*(?:-|,)\s*[A-Z]{2}\b/i);
+  if (matchComUf?.[1]) return limparEspacos(matchComUf[1]);
+
+  const partes = trocarHifensSeparadores(endereco)
+    .split(",")
+    .map((parte) => limparEspacos(parte))
+    .filter(Boolean);
+
+  const indiceUf = partes.findIndex((parte) => /^[A-Z]{2}$/i.test(parte));
+  if (indiceUf > 0) return partes[indiceUf - 1];
+
+  return null;
+}
+
+function extrairEstado(endereco) {
+  return endereco.match(/(?:-|,)\s*([A-Z]{2})\b/i)?.[1]?.toUpperCase() || null;
+}
+
+function extrairCep(endereco) {
+  return endereco.match(/\b\d{5}-?\d{3}\b/)?.[0] || null;
+}
+
+function extrairBairro(endereco) {
+  const partes = trocarHifensSeparadores(endereco)
+    .split(",")
+    .map((parte) => limparEspacos(parte))
+    .filter(Boolean);
+  const indiceUf = partes.findIndex((parte) => /^[A-Z]{2}$/i.test(parte));
+  const indiceCep = partes.findIndex((parte) => /\b\d{5}-?\d{3}\b/.test(parte));
+  const indiceCidade = indiceUf > 0 ? indiceUf - 1 : indiceCep > 1 ? indiceCep - 2 : -1;
+
+  if (indiceCidade > 1) return partes[indiceCidade - 1];
+
+  return null;
+}
+
+function extrairTermoRua(endereco, numero) {
+  const primeiraParte = trocarHifensSeparadores(endereco).split(",")[0] || endereco;
+  const semNumero = numero
+    ? primeiraParte.replace(new RegExp(`\\b${numero}\\b`), " ")
+    : primeiraParte;
+  const palavrasIgnoradas = new Set([
+    "av",
+    "avenida",
+    "dr",
+    "doutor",
+    "r",
+    "rua",
+    "rod",
+    "rodovia",
+    "estrada",
+    "travessa"
+  ]);
+
+  const palavras = normalizarTexto(semNumero)
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((palavra) => palavra.length >= 4 && !palavrasIgnoradas.has(palavra));
+
+  return palavras[0] || null;
+}
+
+function removerBairro(endereco) {
+  const normalizado = trocarHifensSeparadores(endereco);
+  const partes = normalizado
+    .split(",")
+    .map((parte) => limparEspacos(parte))
+    .filter(Boolean);
+
+  if (partes.length < 5) return normalizado;
+
+  const indiceCep = partes.findIndex((parte) => /\b\d{5}-?\d{3}\b/.test(parte));
+  const indiceUf = partes.findIndex((parte) => /^[A-Z]{2}$/i.test(parte));
+  const indiceCidade = indiceUf > 0 ? indiceUf - 1 : indiceCep > 0 ? indiceCep - 2 : -1;
+
+  if (indiceCidade < 2) return normalizado;
+
+  const inicio = partes.slice(0, 2);
+  const fim = partes.slice(indiceCidade);
+  return limparEspacos([...inicio, ...fim].join(", "));
+}
+
+function gerarTentativasGeocode(endereco) {
+  const original = limparEspacos(endereco);
+  const comVirgulas = trocarHifensSeparadores(original);
+  const semBairro = removerBairro(comVirgulas);
+  const expandido = expandirAbreviacoes(original);
+  const combinado = expandirAbreviacoes(removerBairro(comVirgulas));
+  const numero = extrairNumero(original);
+  const tentativas = [];
+
+  for (const query of [original, comVirgulas, semBairro, expandido, combinado]) {
+    if (!query || tentativas.includes(query)) continue;
+    if (numero && !query.includes(numero)) continue;
+    tentativas.push(query);
+    if (tentativas.length === 5) break;
+  }
+
+  return tentativas;
+}
+
+function cepProximo(cepOriginal, displayName) {
+  if (!cepOriginal) return false;
+
+  const cepResultado = displayName.match(/\b\d{5}-?\d{3}\b/)?.[0];
+  if (!cepResultado) return false;
+
+  const originalNormalizado = cepOriginal.replace(/\D/g, "");
+  const resultadoNormalizado = cepResultado.replace(/\D/g, "");
+
+  return originalNormalizado.slice(0, 5) === resultadoNormalizado.slice(0, 5);
+}
+
+function validarResultadoGeocode(resultado, contexto) {
+  const displayName = resultado?.display_name || "";
+  const displayNormalizado = normalizarTexto(displayName);
+  const lat = Number(resultado?.lat);
+  const lon = Number(resultado?.lon);
+  const tipo = normalizarTexto(resultado?.type || "");
+  const tipoEndereco = normalizarTexto(resultado?.addresstype || "");
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return { valido: false, motivo: "resultado sem lat/lon validos" };
+  }
+
+  if (!displayNormalizado.includes("brasil")) {
+    return { valido: false, motivo: "display_name nao contem Brasil" };
+  }
+
+  if (TIPOS_GEOCODE_GENERICOS.has(tipo) || TIPOS_GEOCODE_GENERICOS.has(tipoEndereco)) {
+    return {
+      valido: false,
+      motivo: `resultado generico (${tipo || tipoEndereco})`
+    };
+  }
+
+  if (contexto.cidade && !displayNormalizado.includes(normalizarTexto(contexto.cidade))) {
+    return { valido: false, motivo: `display_name nao contem cidade ${contexto.cidade}` };
+  }
+
+  if (contexto.estado) {
+    const estadoNome = NOMES_ESTADOS_BR[contexto.estado];
+    const estadoBate = displayNormalizado.includes(normalizarTexto(contexto.estado)) ||
+      (estadoNome && displayNormalizado.includes(normalizarTexto(estadoNome)));
+
+    if (!estadoBate) {
+      return { valido: false, motivo: `display_name nao contem estado ${contexto.estado}` };
+    }
+  }
+
+  if (contexto.termoRua && !displayNormalizado.includes(normalizarTexto(contexto.termoRua))) {
+    return { valido: false, motivo: `display_name nao contem termo da rua ${contexto.termoRua}` };
+  }
+
+  if (contexto.numero && !displayNormalizado.includes(contexto.numero)) {
+    const bairroBate = contexto.bairro &&
+      displayNormalizado.includes(normalizarTexto(contexto.bairro));
+    const cepBate = cepProximo(contexto.cep, displayName);
+
+    if (bairroBate || cepBate) {
+      return {
+        valido: true,
+        aproximadoSemNumero: true,
+        motivo: "Resultado aceito sem numero exato. Coordenada aproximada pela rua"
+      };
+    }
+
+    return {
+      valido: false,
+      motivo: `display_name nao contem numero ${contexto.numero}, bairro ou CEP proximo`
+    };
+  }
+
+  return { valido: true, motivo: "resultado confiavel" };
+}
+
 async function geocodificarEndereco(endereco) {
-  if (!endereco?.trim()) return null;
+  if (!endereco?.trim()) {
+    console.warn("[GEOCODE] Endereco vazio. Estabelecimento ficara sem location.");
+    return null;
+  }
 
   const chave = endereco.trim().toLowerCase();
   if (geocodeCache.has(chave)) return geocodeCache.get(chave);
 
   try {
-    const url = new URL("https://nominatim.openstreetmap.org/search");
-    url.searchParams.set("format", "json");
-    url.searchParams.set("limit", "1");
-    url.searchParams.set("addressdetails", "0");
-    url.searchParams.set("countrycodes", "br");
-    url.searchParams.set("q", endereco);
-
-    const resp = await fetch(url, {
-      headers: {
-        "User-Agent": "ABOA-localizacao/1.0",
-        "Accept-Language": "pt-BR"
-      }
-    });
-
-    if (!resp.ok) return null;
-
-    const data = await resp.json();
-    const primeiro = data?.[0];
-    const lat = Number(primeiro?.lat);
-    const lon = Number(primeiro?.lon);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-
-    const location = {
-      type: "Point",
-      coordinates: [lon, lat]
+    const contexto = {
+      cidade: extrairCidade(endereco),
+      numero: extrairNumero(endereco),
+      estado: extrairEstado(endereco),
+      bairro: extrairBairro(endereco),
+      cep: extrairCep(endereco),
+      termoRua: extrairTermoRua(endereco, extrairNumero(endereco))
     };
+    const tentativas = gerarTentativasGeocode(endereco);
 
-    geocodeCache.set(chave, location);
-    return location;
+    for (let i = 0; i < tentativas.length; i++) {
+      const query = tentativas[i];
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.searchParams.set("format", "json");
+      url.searchParams.set("limit", "1");
+      url.searchParams.set("addressdetails", "0");
+      url.searchParams.set("countrycodes", "br");
+      url.searchParams.set("q", query);
+
+      console.log(`[GEOCODE] Tentativa ${i + 1}/${tentativas.length}: ${query}`);
+      console.log(`[GEOCODE] URL: ${url.toString()}`);
+
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": "ABOA-localizacao/1.0",
+          "Accept-Language": "pt-BR"
+        }
+      });
+
+      console.log(`[GEOCODE] Status HTTP: ${resp.status}`);
+
+      if (!resp.ok) {
+        console.warn(
+          `[GEOCODE] Tentativa rejeitada: Nominatim retornou status ${resp.status}.`
+        );
+        continue;
+      }
+
+      const data = await resp.json();
+      const primeiro = data?.[0];
+
+      if (!primeiro) {
+        console.warn("[GEOCODE] Tentativa sem resultado.");
+        continue;
+      }
+
+      console.log(`[GEOCODE] Primeiro resultado: ${primeiro.display_name || "sem display_name"}`);
+
+      const validacao = validarResultadoGeocode(primeiro, contexto);
+      if (!validacao.valido) {
+        console.warn(`[GEOCODE] Resultado rejeitado: ${validacao.motivo}.`);
+        continue;
+      }
+
+      const lat = Number(primeiro.lat);
+      const lon = Number(primeiro.lon);
+      const location = {
+        type: "Point",
+        coordinates: [lon, lat]
+      };
+
+      if (validacao.aproximadoSemNumero) {
+        console.log("[GEOCODE] Resultado aceito sem número exato. Coordenada aproximada pela rua.");
+      } else {
+        console.log(`[GEOCODE] Resultado aceito: ${validacao.motivo}.`);
+      }
+      geocodeCache.set(chave, location);
+      return location;
+    }
+
+    console.warn(
+      `[GEOCODE] Nao foi possivel geocodificar com precisao suficiente. Endereco: ${endereco}`
+    );
+    return null;
   } catch (err) {
     console.error("Erro ao geocodificar endereco:", err);
     return null;
@@ -164,6 +487,11 @@ router.post(
       } = req.body;
 
       const location = await geocodificarEndereco(endereco);
+      if (!location) {
+        console.warn(
+          `[GEOCODE] Estabelecimento "${nome}" sera salvo sem location. Endereco: ${endereco || "vazio"}`
+        );
+      }
 
       const novo = await Estabelecimento.create({
         nome,
@@ -247,6 +575,11 @@ router.put("/meu", authRequired, async (req, res) => {
     if (req.body.endereco) {
       const location = await geocodificarEndereco(req.body.endereco);
       if (location) dadosAtualizados.location = location;
+      else {
+        console.warn(
+          `[GEOCODE] Edicao do estabelecimento sera salva sem atualizar location. Endereco: ${req.body.endereco}`
+        );
+      }
     }
 
     const atualizado = await Estabelecimento.findOneAndUpdate(
@@ -293,13 +626,14 @@ router.get("/buscar", async (req, res) => {
     const q = req.query.q?.trim();
     if (!q) return res.json([]);
 
-    const termo = q.toLowerCase();
+    const termo = normalizarTexto(q);
+    const regexBusca = criarRegexBuscaTextual(q);
     const filtroBusca = {
       $or: [
-        { nome: new RegExp(termo, "i") },
-        { descricao: new RegExp(termo, "i") },
-        { categoria: new RegExp(termo, "i") },
-        { tags: new RegExp(termo, "i") }
+        { nome: regexBusca },
+        { descricao: regexBusca },
+        { categoria: regexBusca },
+        { tags: regexBusca }
       ]
     };
 
@@ -322,10 +656,10 @@ router.get("/buscar", async (req, res) => {
     function calcularRelevancia(est) {
       let score = 0;
 
-      const nome = est.nome?.toLowerCase() || "";
-      const desc = est.descricao?.toLowerCase() || "";
-      const cat = est.categoria?.toLowerCase() || "";
-      const tags = (est.tags || []).map(t => t.toLowerCase());
+      const nome = normalizarTexto(est.nome || "");
+      const desc = normalizarTexto(est.descricao || "");
+      const cat = normalizarTexto(est.categoria || "");
+      const tags = (est.tags || []).map(t => normalizarTexto(t));
 
       // PESOS DIRETOS (exatos)
       if (nome.includes(termo)) score += 50;
