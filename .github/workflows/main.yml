@@ -13,7 +13,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: aboa-react
+        working-directory: ABOA - lllSEM/aboa-react
 
     steps:
       - name: Baixar código
@@ -39,7 +39,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: backend
+        working-directory: ABOA - lllSEM/backend
 
     steps:
       - name: Baixar código
