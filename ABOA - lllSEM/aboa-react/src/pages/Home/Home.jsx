@@ -62,6 +62,42 @@ function formatarDistancia(distanciaKm) {
   })} km`;
 }
 
+async function obterLocalizacaoAtual() {
+  const localizacaoSalva = lerLocalizacaoSalva();
+  if (localizacaoSalva) return localizacaoSalva;
+
+  if (!navigator.geolocation) return null;
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const localizacao = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        };
+
+        sessionStorage.setItem(
+          USER_LOCATION_KEY,
+          JSON.stringify({
+            ...localizacao,
+            accuracy: pos.coords.accuracy,
+            updatedAt: Date.now()
+          })
+        );
+
+        window.dispatchEvent(new Event(USER_LOCATION_UPDATED_EVENT));
+        resolve(localizacao);
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 300000
+      }
+    );
+  });
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const [busca, setBusca] = useState("");
@@ -121,7 +157,7 @@ export default function Home() {
   }
 
   async function buscarPorRaio(raioKm = raioSelecionado) {
-    const localizacao = lerLocalizacaoSalva();
+    const localizacao = await obterLocalizacaoAtual();
 
     if (!localizacao) {
       setLocalizacaoMapa(null);
@@ -146,11 +182,14 @@ export default function Home() {
         return;
       }
 
-      const restaurantesComCoordenadas = data.filter(getCoordenadasRestaurante);
-      setRestaurantesRaio(restaurantesComCoordenadas);
+      setRestaurantesRaio(data);
 
-      if (restaurantesComCoordenadas.length === 0) {
+      const restaurantesComCoordenadas = data.filter(getCoordenadasRestaurante);
+
+      if (data.length === 0) {
         setMensagemRaio("Nenhum restaurante encontrado nesse raio.");
+      } else if (restaurantesComCoordenadas.length === 0) {
+        setMensagemRaio("Encontramos restaurantes, mas eles ainda não têm localização registrada.");
       }
     } catch (err) {
       setMensagemRaio("Erro de conexão com o servidor.");
