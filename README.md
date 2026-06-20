@@ -5,8 +5,8 @@
 ### Integrantes
 
 * Leandro Cardoso – RA 27003392423007
-* Celso Sebastião
-* Jhonathan Henrique
+* Celso Sebastião - RA 2701392423002
+* Jhonathan Henrique - RA 2701392423001
 
 ---
 
@@ -22,7 +22,7 @@ A aplicação permite localizar estabelecimentos, visualizar cardápios, obter r
 
 ### Frontend
 
-https://aboa-1yssafeo7-jhow-s-projects3.vercel.app/
+(https://aboa-iv.vercel.app/)
 
 ### Backend
 
