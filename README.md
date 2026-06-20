@@ -1,363 +1,258 @@
-# 📄 README.md — Projeto ABOA (Atualizado com instruções de instalação)
+# ABOA – Plataforma de Recomendação Gastronômica
 
-```markdown
-# Aboa — Aplicativo de Recomendação de Restaurantes
+## Projeto Integrador IV – FATEC Cotia
 
-O Aboa é um aplicativo desenvolvido com foco em facilitar a vida de pessoas que querem encontrar restaurantes próximos,
-descobrir novos lugares e visualizar cardápios completos antes mesmo de chegar ao estabelecimento.
-O sistema permite que usuários encontrem opções variadas e que restaurantes ganhem mais visibilidade,
-podendo cadastrar seus dados, fotos e itens de cardápio de forma simples.
+### Integrantes
 
-O Aboa é um aplicativo web composto por:
-
-- **Front-end:** React (pasta `aboa-react`)
-- **Back-end:** Node.js + Express + MongoDB (pasta `backend`)
-
-Este documento explica como instalar, configurar e rodar o sistema em qualquer computador.
+* Leandro Cardoso – RA 27003392423007
+* Celso Sebastião
+* Jhonathan Henrique
 
 ---
 
-# 1. Requisitos Obrigatórios
+## Sobre o Projeto
 
-Antes de rodar o projeto, é necessário instalar na máquina:
+ABOA é uma plataforma web Full-Stack desenvolvida para auxiliar usuários na descoberta de bares e restaurantes próximos através de geolocalização, busca inteligente e recomendações gastronômicas.
 
-### ✔ Node.js (versão 18+)
-Download: https://nodejs.org/
-
-### ✔ NPM (vem junto com o Node)
-
-### ✔ MongoDB Community Server  
-Download: https://www.mongodb.com/try/download/community
-
-Após instalar, verificar se está funcionando:
-
-```
-
-mongod
-
-```
-
-Se o servidor iniciar, o Mongo está OK.
+A aplicação permite localizar estabelecimentos, visualizar cardápios, obter rotas de navegação e filtrar resultados por distância geográfica.
 
 ---
 
-# 2. Estrutura do Projeto
+## Aplicação Publicada
 
-```
+### Frontend
 
-/backend        → Servidor Node.js + Express + MongoDB
-/aboa-react     → Front-end React + Vite
+https://aboa-1yssafeo7-jhow-s-projects3.vercel.app/
 
-```
+### Backend
 
----
-
-# 3. Instalação das Tecnologias do Backend
-
-Todas as tecnologias abaixo já estão declaradas no `package.json`.  
-O professor **não precisa instalar nada manualmente** além de rodar:
-
-```
-
-npm install
-
-```
-
-na pasta `backend`.
-
-Mas segue a lista para documentação:
-
-### ✔ Node.js  
-Já instalado pelo requisito inicial.
-
-### ✔ Express  
-Framework do servidor.  
-Instalação (já embutida):  
-```
-
-npm install express
-
-```
-
-### ✔ MongoDB + Mongoose  
-Banco de dados + ORM.  
-```
-
-npm install mongoose
-
-```
-
-### ✔ Multer (upload de imagens)  
-Responsável por salvar fotos enviadas pelo usuário.  
-```
-
-npm install multer
-
-```
-
-### ✔ JWT (Json Web Token) – Autenticação  
-```
-
-npm install jsonwebtoken
-
-```
-
-### ✔ Bcrypt – Criptografia de senhas  
-```
-
-npm install bcrypt
-
-```
-
-### ✔ CORS – Permitir comunicação com o frontend  
-```
-
-npm install cors
-
-```
-
-### ✔ Dotenv – Leitura de variáveis do .env  
-```
-
-npm install dotenv
-
-```
+(https://aboa-iv.onrender.com)
 
 ---
 
-# 4. Como Rodar o Back-end
+## Repositórios
 
-Acesse a pasta:
+### Frontend
 
-```
+https://github.com/1jhoww/ABOA-IV/tree/main/ABOA%20-%20lllSEM/aboa-react
 
-cd backend
+### Backend
 
-```
-
-Instale as dependências:
-
-```
-
-npm install
-
-```
+https://github.com/1jhoww/ABOA-IV/tree/main/ABOA%20-%20lllSEM/backend
 
 ---
 
-## 4.1 Criar o arquivo `.env`
+# Funcionalidades
 
-Dentro da pasta **backend**, crie um arquivo chamado:
+## Usuários
 
-```
+* Cadastro de usuário
+* Login autenticado via JWT
+* Gerenciamento de conta
 
-.env
+## Estabelecimentos
 
-````
+* Cadastro de estabelecimentos
+* Upload de imagens
+* Gerenciamento de cardápios
 
-E coloque dentro:
+## Busca Inteligente
 
-```env
-PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/aboa
-JWT_SECRET=uma_chave_qualquer
-JWT_EXPIRES_IN=1d
-````
+* Busca por nome
+* Busca por categoria
+* Busca por palavras-chave
 
-Essas variáveis **são obrigatórias**.
-Sem esse arquivo o back-end não conecta ao MongoDB.
+## Geolocalização
 
----
+Identificação automática da localização do usuário utilizando a API de Geolocalização do navegador.
 
-## 4.2 Rodar o servidor
+## Busca por Raio Geográfico
 
-```
-npm run dev
-```
+Pesquisa de estabelecimentos dentro de:
 
-Se tudo estiver correto, aparecerão mensagens como:
+* 5 km
+* 10 km
+* 15 km
+* 20 km
 
-```
-Servidor rodando na porta 5000
-MongoDB conectado com sucesso!
-```
+Utilizando índices geoespaciais MongoDB Atlas (2dsphere).
 
----
+## Geração de Rotas
 
-# 5. Como Rodar o Front-end
+Cálculo de trajetos entre usuário e estabelecimento através de:
 
-Acesse a pasta:
+* OpenStreetMap
+* React Leaflet
+* OSRM
 
-```
-cd aboa-react
-```
+Exibindo:
 
-Instale as dependências:
+* Distância
+* Tempo estimado
+* Navegação assistida
 
-```
-npm install
-```
+## Observabilidade
 
-Inicie o React:
+O back-end conta com mecanismos básicos de observabilidade para acompanhar o funcionamento da API em execução:
 
-```
-npm run dev
-```
+- *Logs estruturados de requisições HTTP* com *Morgan*, exibindo no terminal, para cada requisição: data/hora, método HTTP, rota, status da resposta, tamanho e tempo de resposta.
+- *Endpoint de health check* em GET /api/health, que retorna o status da API, o tempo de atividade (uptime) e a situação da conexão com o banco de dados (MongoDB).
 
-O Vite abrirá o projeto em:
+### Como visualizar
 
-```
-http://localhost:5173
-```
+Com o backend rodando (npm run dev), acesse no navegador ou via Postman/Insomnia:
 
----
 
-# 6. Tecnologias Utilizadas
+http://localhost:5000/api/health
 
-### Back-end
 
-* Node.js
-* Express
-* MongoDB + Mongoose
-* Multer (upload de imagens)
-* JWT (autenticação)
-* Bcrypt
-* CORS
-* Dotenv
+Resposta esperada:
 
-### Front-end
+json
+{
+  "ok": true,
+  "message": "ABOA API online",
+  "uptime_seconds": 120,
+  "timestamp": "2026-06-20T14:00:00.000Z",
+  "database": "connected"
+}
+
+# Tecnologias Utilizadas
+
+## Frontend
 
 * React
 * Vite
 * React Router DOM
+* React Leaflet
 * CSS Modules
-* Fetch API (para chamadas ao backend)
+
+## Backend
+
+* Node.js
+* Express
+* MongoDB Atlas
+* Mongoose
+* JWT
+* Bcrypt
+* Multer
+* CORS
+* Dotenv
+
+## DevOps
+
+* GitHub
+* Vercel
+* Render
 
 ---
 
-# 7. Estrutura de pastas
+# Arquitetura
 
-```
-📦 
-└─ ABOA - lllSEM
-   ├─ aboa-react
-   │  ├─ index.html
-   │  ├─ package.json
-   │  ├─ public
-   │  ├─ src
-   │  │  ├─ App.jsx
-   │  │  ├─ assets
-   │  │  ├─ components
-   │  │  ├─ main.jsx
-   │  │  ├─ pages
-   │  │  └─ styles
-   │  └─ vite.config.js
-   └─ backend
-      ├─ config
-      ├─ middleware
-      ├─ models
-      ├─ routes
-      ├─ server.js
-      ├─ uploads
-      └─ package.json
-```
+Frontend React
+
+↓
+
+API REST Node.js + Express
+
+↓
+
+MongoDB Atlas
+
+↓
+
+OpenStreetMap + Nominatim + OSRM
 
 ---
 
-# 8. Erros Comuns e Como Resolver
+# Estrutura do Projeto
 
-### ❌ Erro:
-
-```
-MongooseError: The uri parameter to openUri() must be a string, got "undefined"
-```
-
-### ✔ Solução:
-
-O arquivo `.env` está faltando ou escrito incorretamente.
-
-Confirme se existe:
-
-```
-backend/.env
-```
-
-E se contém:
-
-```
-MONGO_URI=mongodb://127.0.0.1:27017/aboa
-```
+ABOA
+│
+├── aboa-react
+│ ├── src
+│ ├── pages
+│ ├── components
+│ └── styles
+│
+└── backend
+├── config
+├── middleware
+├── models
+├── routes
+├── uploads
+└── server.js
 
 ---
 
-### ❌ Erro: MongoDB não inicia
+# Instalação
 
-Solução:
+## Backend
 
-* O MongoDB não está instalado
-* O serviço não está ativo
-* Porta 27017 ocupada
-
-Verifique com:
-
-```
-mongod
-```
-
----
-
-### ❌ Front-end não encontra o back-end
-
-O back-end deve estar rodando na porta **5000**
-E o front-end deve fazer requisições para:
-
-```
-http://localhost:5000
-```
-
----
-
-# 9. Como Rodar o Projeto Completo
-
-## Passo 1 — Iniciar o MongoDB
-
-```
-mongod
-```
-
-## Passo 2 — Iniciar o backend
-
-```
 cd backend
+
+npm install
+
 npm run dev
-```
 
-## Passo 3 — Iniciar o frontend
+## Frontend
 
-```
 cd aboa-react
+
+npm install
+
 npm run dev
-```
-
-Acesse no navegador:
-
-```
-http://localhost:5173
-```
 
 ---
 
-# 10. Conclusão
+# Variáveis de Ambiente
 
-Seguindo essas instruções:
+Arquivo .env
 
-1. Instalar Node
-2. Instalar MongoDB
-3. Criar o `.env` dentro de `/backend`
-4. Rodar `npm install` nas duas pastas
-5. Iniciar ambos os servidores
+PORT=5000
 
-O projeto funcionará perfeitamente.
+MONGO_URI=sua_string_mongodb
 
+JWT_SECRET=sua_chave
 
-```
+JWT_EXPIRES_IN=1d
+
+---
+
+# Novas Features do Projeto Integrador IV
+
+### Feature 1
+
+Geolocalização do Usuário
+
+### Feature 2
+
+Busca por Raio Geográfico
+
+### Feature 3
+
+Geração de Rotas
+
+---
+
+# Deploy
+
+Frontend hospedado na Vercel.
+
+Backend hospedado no Render.
+
+---
+
+# Melhorias Futuras
+
+* Sistema de avaliações
+* Recomendações com IA
+* Favoritos
+* Aplicativo Mobile
+* Arquitetura de Microsserviços
+
+---
+
+# Licença
+
+Projeto acadêmico desenvolvido para o curso de Desenvolvimento de Software Multiplataforma da FATEC Cotia.
